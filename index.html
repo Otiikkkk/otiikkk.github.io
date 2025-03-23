@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Itzzsophia Simulator - Multiplayer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    button, input {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+    }
+    button:disabled {
+      background: #ccc;
+      color: #666;
+      cursor: not-allowed;
+    }
+    #result, #totals, #playersList {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #2a9d8f;
+    }
+    #playersList p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Itzzsophia Simulator - Multiplayer</h1>
+  
+  <!-- Multiplayer Join Section -->
+  <input id="usernameInput" type="text" placeholder="Enter your username">
+  <button id="joinGame">Join Game</button>
+  <button id="leaveGame" style="display:none;">Leave Game</button>
+  
+  <h2>Players in Game</h2>
+  <div id="playersList"></div>
+  
+  <hr>
+  
+  <!-- Gacha Simulator Section -->
+  <button id="drawButton">Draw Gacha Character</button>
+  <button id="editButton" disabled>Edit Gacha Video</button>
+  <button id="uploadButton" disabled>Upload Gacha Video</button>
+  
+  <div id="result"></div>
+  <div id="totals"><strong>Your Total:</strong> 0 Views | 0 Subs</div>
+  
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  
+  <script>
+    // Firebase configuration – replace with your own project details.
+    const firebaseConfig = {
+     apiKey: "AIzaSyATE5uCh_Ob5Igvo46lANknrSyyZ7GREGA",
+     authDomain: "itzzsophia-simulator.firebaseapp.com",
+     projectId: "itzzsophia-simulator",
+     databaseURL: "https://itzzsophia-simulator-default-rtdb.europe-west1.firebasedatabase.app/",
+     storageBucket: "itzzsophia-simulator.firebasestorage.app",
+     messagingSenderId: "533863261190",
+     appId: "1:533863261190:web:68bb31324e98bc64c14f87"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    
+    // Multiplayer: Handle username input and player list
+    const usernameInput = document.getElementById("usernameInput");
+    const joinGameBtn = document.getElementById("joinGame");
+    const leaveGameBtn = document.getElementById("leaveGame");
+    const playersListDiv = document.getElementById("playersList");
+    let currentPlayerRef = null;
+    
+    joinGameBtn.addEventListener("click", () => {
+      const username = usernameInput.value.trim();
+      if (username === "") {
+        alert("Please enter a username.");
+        return;
+      }
+      // Add player to Firebase under 'players' node with initial stats
+      currentPlayerRef = database.ref('players').push();
+      currentPlayerRef.set({ username, views: 0, subs: 0 });
+      
+      // Hide join controls and show leave button
+      usernameInput.style.display = "none";
+      joinGameBtn.style.display = "none";
+      leaveGameBtn.style.display = "inline-block";
+    });
+    
+    leaveGameBtn.addEventListener("click", () => {
+      if (currentPlayerRef) {
+        currentPlayerRef.remove();
+        currentPlayerRef = null;
+      }
+      // Reset join controls
+      usernameInput.style.display = "inline-block";
+      joinGameBtn.style.display = "inline-block";
+      leaveGameBtn.style.display = "none";
+    });
+    
+    // Listen for changes in the players list and update UI
+    database.ref('players').on('value', (snapshot) => {
+      const playersData = snapshot.val();
+      let playersHtml = "";
+      for (let key in playersData) {
+        let player = playersData[key];
+        playersHtml += `<p>${player.username} - ${player.views || 0} Views, ${player.subs || 0} Subs</p>`;
+      }
+      playersListDiv.innerHTML = playersHtml;
+    });
+    
+    // Gacha Simulator: Local simulation for this user
+    let drawCompleted = false;
+    let editCompleted = false;
+    let totalViews = 0;
+    let totalSubs = 0;
+    
+    const drawButton = document.getElementById("drawButton");
+    const editButton = document.getElementById("editButton");
+    const uploadButton = document.getElementById("uploadButton");
+    const resultDiv = document.getElementById("result");
+    const totalsDiv = document.getElementById("totals");
+    
+    // Draw Gacha Character: Enables the Edit button
+    drawButton.addEventListener("click", function() {
+      drawCompleted = true;
+      resultDiv.innerHTML = "<p>Gacha character drawn! Now you can edit the gacha video.</p>";
+      editButton.disabled = false;
+      uploadButton.disabled = true;
+    });
+    
+    // Edit Gacha Video: Enables the Upload button
+    editButton.addEventListener("click", function() {
+      if (!drawCompleted) {
+        alert("Please draw a gacha character first!");
+        return;
+      }
+      editCompleted = true;
+      resultDiv.innerHTML = "<p>Gacha video edited! Now you can upload the gacha video.</p>";
+      uploadButton.disabled = false;
+    });
+    
+    // Upload Gacha Video: Randomizes views/subs, updates totals, updates multiplayer stats, and resets steps
+    uploadButton.addEventListener("click", function() {
+      if (!editCompleted) {
+        alert("Please edit the gacha video first!");
+        return;
+      }
+      const views = Math.floor(Math.random() * 100000);
+      const subs = Math.floor(Math.random() * 5000);
+      
+      totalViews += views;
+      totalSubs += subs;
+      
+      resultDiv.innerHTML = `<p>🎉 This video got ${views} views and ${subs} subs! 🎉</p>`;
+      totalsDiv.innerHTML = `<strong>Your Total:</strong> ${totalViews} Views | ${totalSubs} Subs`;
+      
+      // Update your player record in Firebase if you're in the game
+      if (currentPlayerRef) {
+        currentPlayerRef.update({ views: totalViews, subs: totalSubs });
+      }
+      
+      // Reset steps for a new cycle
+      drawCompleted = false;
+      editCompleted = false;
+      editButton.disabled = true;
+      uploadButton.disabled = true;
+    });
+  </script>
+</body>
+</html>
